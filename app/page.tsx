@@ -1,101 +1,183 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Image from "next/image";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
-export default function Home() {
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface Product {
+  id: string;
+  title: string;
+  price: number;
+  thumbnail: string;
+  permalink: string;
+}
+
+export default function GiftRecommender() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [priceRange, setPriceRange] = useState<string>("");
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(
+          "https://api.mercadolibre.com/sites/MLA/categories"
+        );
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        console.log("Categories:", data);
+        setCategories(data);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  const handleSearch = async () => {
+    setLoading(true);
+    const response = await fetch(
+      `https://api.mercadolibre.com/sites/MLA/search?status=active&category=${selectedCategory}`
+    );
+    const data = await response.json();
+    const filteredProducts = filterProductsByPriceRange(
+      data.results,
+      priceRange
+    );
+    const randomProduct =
+      filteredProducts[Math.floor(Math.random() * filteredProducts.length)];
+
+    randomProduct.thumbnail = randomProduct.thumbnail.replace(
+      "-I.jpg",
+      "-O.jpg"
+    );
+    setProduct(randomProduct);
+    setLoading(false);
+  };
+
+  const filterProductsByPriceRange = (products: Product[], range: string) => {
+    switch (range) {
+      case "hasta30000":
+        return products.filter((p) => p.price <= 30000);
+      case "hasta50000":
+        return products.filter((p) => p.price <= 50000);
+      case "hasta75000":
+        return products.filter((p) => p.price <= 75000);
+      case "hasta100000":
+        return products.filter((p) => p.price <= 100000);
+      case "masde100000":
+        return products.filter((p) => p.price > 100000);
+      default:
+        return products;
+    }
+  };
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="min-h-screen bg-red-100 p-8">
+      <h1 className="text-4xl font-bold text-center mb-8 text-green-700">
+        Recomendador de Regalos Navideños
+      </h1>
+      <div className="max-w-md mx-auto space-y-4">
+        <Select onValueChange={setSelectedCategory}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona una categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select onValueChange={setPriceRange}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona un rango de precios" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="hasta30000">Hasta $30,000</SelectItem>
+            <SelectItem value="hasta50000">Hasta $50,000</SelectItem>
+            <SelectItem value="hasta75000">Hasta $75,000</SelectItem>
+            <SelectItem value="hasta100000">Hasta $100,000</SelectItem>
+            <SelectItem value="masde100000">Más de $100,000</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button
+          onClick={handleSearch}
+          className="w-full bg-green-600 hover:bg-green-700"
+          disabled={!selectedCategory || !priceRange || loading}
+        >
+          {loading ? "Buscando regalo..." : "Buscar regalo"}
+        </Button>
+      </div>
+      {product && (
+        <Card className="max-w-md mx-auto mt-8 bg-white shadow-lg">
+          <CardHeader>
+            <CardTitle>{product.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex justify-center">
             <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src={product.thumbnail}
+              alt={product.title}
+              width={200}
+              height={200}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          </CardContent>
+          <CardFooter className="flex flex-col items-center space-y-4">
+            <p className="text-2xl font-bold">
+              ${product.price.toLocaleString()}
+            </p>
+            <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+              <a
+                href={product.permalink}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ver en MercadoLibre
+              </a>
+            </Button>
+            <Button
+              onClick={handleSearch}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              Elegir otro producto
+            </Button>
+            <Button
+              onClick={() => {
+                setSelectedCategory("");
+                setPriceRange("");
+                setProduct(null);
+              }}
+              className="w-full"
+            >
+              Volver a elegir categoría
+            </Button>
+          </CardFooter>
+        </Card>
+      )}
     </div>
   );
 }
